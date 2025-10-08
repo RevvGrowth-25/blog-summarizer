@@ -24,7 +24,7 @@ export default function BlogGenerator() {
     setError('');
 
     try {
-      const webhookUrl = 'https://n8n.srv992398.hstgr.cloud/webhook-test/88a6d67d-c831-460c-8dd3-404bfbe1b846';
+      const webhookUrl = 'https://n8n.srv992398.hstgr.cloud/webhook/88a6d67d-c831-460c-8dd3-404bfbe1b846';
       
       const response = await fetch(webhookUrl, {
         method: 'POST',
