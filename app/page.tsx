@@ -1,7 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Loader2, FileText, Sparkles, ArrowRight, CheckCircle2, Copy, RefreshCw } from 'lucide-react';
+import { marked } from 'marked';
+import {
+  Send,
+  Loader2,
+  FileText,
+  Sparkles,
+  ArrowRight,
+  CheckCircle2,
+  Copy,
+  RefreshCw,
+} from 'lucide-react';
 
 export default function BlogGenerator() {
   const [step, setStep] = useState<number>(1);
@@ -11,44 +21,11 @@ export default function BlogGenerator() {
   const [error, setError] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
 
+  /* ---------- helpers ---------- */
   const handleTextSubmit = () => {
     if (blogText.trim()) {
       setStep(2);
       setError('');
-    }
-  };
-
-  const handleFormatSelect = async (format: string) => {
-    setSelectedFormat(format);
-    setStep(3);
-    setError('');
-
-    try {
-      const webhookUrl = 'https://n8n.srv992398.hstgr.cloud/webhook/88a6d67d-c831-460c-8dd3-404bfbe1b846';
-      
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          blogText: blogText,
-          format: format,
-          timestamp: new Date().toISOString()
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setResult(data.response || data.result || data.message || JSON.stringify(data, null, 2));
-      setStep(4);
-    } catch (err) {
-      setError('Failed to generate blog. Please try again.');
-      console.error('Error:', err);
-      setStep(2);
     }
   };
 
@@ -62,21 +39,60 @@ export default function BlogGenerator() {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(result);
+    const plain = new DOMParser().parseFromString(result, 'text/html').body
+      .textContent || '';
+    navigator.clipboard.writeText(plain);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Step 1: Blog Text Input
-  if (step === 1) {
+  /* ---------- format selection + webhook ---------- */
+  const handleFormatSelect = async (format: 'reddit' | 'medium') => {
+    setSelectedFormat(format);
+    setStep(3);
+    setError('');
+
+    try {
+      const webhookUrl =
+        'https://n8n.srv992398.hstgr.cloud/webhook/88a6d67d-c831-460c-8dd3-404bfbe1b846';
+
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blogText,
+          format,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const md = Array.isArray(data) ? data[0]?.output ?? '' : data.output ?? data.message ?? JSON.stringify(data);
+
+      // auto-detect HTML vs Markdown
+      const isHTML = /<[^>]*>/g.test(md);
+      const html = isHTML ? md : marked(md as string);
+      setResult(html);
+      setStep(4);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to generate blog. Please try again.');
+      setStep(2);
+    }
+  };
+
+  /* ---------- UI: step 1 ---------- */
+  if (step === 1)
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <div className="w-full max-w-3xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl mb-4 shadow-lg">
-              <img src="https://i.ibb.co/QjYWQwQ2/Logomark-White.png" height="40" width="40" alt="Riva"/>
+               <img src="https://i.ibb.co/QjYWQwQ2/Logomark-White.png" height="40" width="40" alt="Riva"/>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Blog Summarizer </h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Blog Generator</h1>
             <p className="text-lg text-gray-600">Transform your ideas into engaging blog posts</p>
           </div>
 
@@ -87,15 +103,13 @@ export default function BlogGenerator() {
             <textarea
               value={blogText}
               onChange={(e) => setBlogText(e.target.value)}
-              placeholder="Write your blog content here... Share your thoughts, ideas, or story that you want to transform into a professional blog post."
+              placeholder="Write your blog content here..."
               rows={12}
               className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900 placeholder-gray-400"
             />
 
             <div className="mt-6 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                {blogText.length} characters
-              </p>
+              <p className="text-sm text-gray-500">{blogText.length} characters</p>
               <button
                 onClick={handleTextSubmit}
                 disabled={!blogText.trim()}
@@ -109,10 +123,9 @@ export default function BlogGenerator() {
         </div>
       </div>
     );
-  }
 
-  // Step 2: Format Selection
-  if (step === 2) {
+  /* ---------- UI: step 2 (format choice) ---------- */
+  if (step === 2)
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <div className="w-full max-w-4xl">
@@ -131,7 +144,7 @@ export default function BlogGenerator() {
           )}
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Reddit Format */}
+            {/* Reddit card */}
             <button
               onClick={() => handleFormatSelect('reddit')}
               className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-8 hover:border-orange-500 hover:shadow-2xl transition-all group text-left"
@@ -156,7 +169,7 @@ export default function BlogGenerator() {
               </div>
             </button>
 
-            {/* Medium Format */}
+            {/* Medium card */}
             <button
               onClick={() => handleFormatSelect('medium')}
               className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-8 hover:border-green-500 hover:shadow-2xl transition-all group text-left"
@@ -183,20 +196,16 @@ export default function BlogGenerator() {
           </div>
 
           <div className="mt-8 text-center">
-            <button
-              onClick={() => setStep(1)}
-              className="text-gray-600 hover:text-gray-900 font-medium"
-            >
+            <button onClick={() => setStep(1)} className="text-gray-600 hover:text-gray-900 font-medium">
               ← Back to Edit
             </button>
           </div>
         </div>
       </div>
     );
-  }
 
-  // Step 3: Loading
-  if (step === 3) {
+  /* ---------- UI: step 3 (loading) ---------- */
+  if (step === 3)
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <div className="text-center">
@@ -207,7 +216,9 @@ export default function BlogGenerator() {
             </div>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-3">Creating Your Blog</h2>
-          <p className="text-lg text-gray-600 mb-2">Our AI is crafting your perfect {selectedFormat === 'reddit' ? 'Reddit post' : 'Medium article'}</p>
+          <p className="text-lg text-gray-600 mb-2">
+            Our AI is crafting your perfect {selectedFormat === 'reddit' ? 'Reddit post' : 'Medium article'}
+          </p>
           <p className="text-sm text-gray-500">This may take a few moments...</p>
 
           <div className="mt-8 flex justify-center gap-2">
@@ -218,10 +229,9 @@ export default function BlogGenerator() {
         </div>
       </div>
     );
-  }
 
-  // Step 4: Result
-  if (step === 4) {
+  /* ---------- UI: step 4 (result) ---------- */
+  if (step === 4)
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 p-4 py-12">
         <div className="max-w-4xl mx-auto">
@@ -259,13 +269,10 @@ export default function BlogGenerator() {
               </button>
             </div>
 
-            <div className="p-8">
-              <div className="prose prose-lg max-w-none">
-                <pre className="whitespace-pre-wrap text-gray-800 leading-relaxed font-sans">
-                  {result}
-                </pre>
-              </div>
-            </div>
+            <article
+              className="p-8 prose prose-lg max-w-none text-gray-800"
+              dangerouslySetInnerHTML={{ __html: result }}
+            />
           </div>
 
           <div className="mt-8 flex justify-center gap-4">
@@ -280,7 +287,6 @@ export default function BlogGenerator() {
         </div>
       </div>
     );
-  }
 
   return null;
 }
