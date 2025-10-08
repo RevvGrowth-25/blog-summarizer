@@ -3,20 +3,20 @@
 import { useState } from 'react';
 import { marked } from 'marked';
 import {
-  Send,
   Loader2,
   FileText,
-  Sparkles,
   ArrowRight,
   CheckCircle2,
   Copy,
   RefreshCw,
 } from 'lucide-react';
 
+type Format = 'reddit' | 'medium';
+
 export default function BlogGenerator() {
   const [step, setStep] = useState<number>(1);
   const [blogText, setBlogText] = useState<string>('');
-  const [selectedFormat, setSelectedFormat] = useState<string>('');
+  const [selectedFormat, setSelectedFormat] = useState<Format | ''>('');
   const [result, setResult] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
@@ -47,7 +47,7 @@ export default function BlogGenerator() {
   };
 
   /* ---------- format selection + webhook ---------- */
-  const handleFormatSelect = async (format: 'reddit' | 'medium') => {
+  const handleFormatSelect = async (format: Format) => {
     setSelectedFormat(format);
     setStep(3);
     setError('');
@@ -71,12 +71,11 @@ export default function BlogGenerator() {
       const data = await res.json();
       const md = Array.isArray(data) ? data[0]?.output ?? '' : data.output ?? data.message ?? JSON.stringify(data);
 
-      // auto-detect HTML vs Markdown
       const isHTML = /<[^>]*>/g.test(md);
       const html = isHTML ? md : marked(md as string);
       setResult(html);
       setStep(4);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setError('Failed to generate blog. Please try again.');
       setStep(2);
@@ -90,7 +89,7 @@ export default function BlogGenerator() {
         <div className="w-full max-w-3xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl mb-4 shadow-lg">
-               <img src="https://i.ibb.co/QjYWQwQ2/Logomark-White.png" height="40" width="40" alt="Riva"/>
+              <FileText className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Blog Generator</h1>
             <p className="text-lg text-gray-600">Transform your ideas into engaging blog posts</p>
